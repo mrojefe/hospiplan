@@ -4,109 +4,111 @@ from rest_framework.exceptions import ValidationError
 from django.db.models import Q
 import datetime
 
-from .models import Soignant, PosteGarde, Affectation, Absence, RegleLegale, Contrat, SoignantCertification
-from .serializers import SoignantSerializer, PosteGardeSerializer, AffectationSerializer, AbsenceSerializer
+from .models import Staff, Shift, ShiftAssignment, Absence, Rule, Contract, StaffCertification
+from .serializers import StaffSerializer, ShiftSerializer, ShiftAssignmentSerializer, AbsenceSerializer
 
-class SoignantViewSet(viewsets.ModelViewSet):
-    queryset = Soignant.objects.all()
-    serializer_class = SoignantSerializer
+class StaffViewSet(viewsets.ModelViewSet):
+    queryset = Staff.objects.all()
+    serializer_class = StaffSerializer
 
-class PosteGardeViewSet(viewsets.ModelViewSet):
-    queryset = PosteGarde.objects.all()
-    serializer_class = PosteGardeSerializer
+class ShiftViewSet(viewsets.ModelViewSet):
+    queryset = Shift.objects.all()
+    serializer_class = ShiftSerializer
 
 class AbsenceViewSet(viewsets.ModelViewSet):
     queryset = Absence.objects.all()
     serializer_class = AbsenceSerializer
 
-class AffectationViewSet(viewsets.ModelViewSet):
-    queryset = Affectation.objects.all()
-    serializer_class = AffectationSerializer
+class ShiftAssignmentViewSet(viewsets.ModelViewSet):
+    queryset = ShiftAssignment.objects.all()
+    serializer_class = ShiftAssignmentSerializer
 
     def perform_create(self, serializer):
-        soignant = serializer.validated_data['soignant']
-        poste = serializer.validated_data['poste']
+        staff = serializer.validated_data['staff']
+        shift = serializer.validated_data['shift']
         
-        # Validation des contraintes dures (Hard Constraints F-10 / Phase 2)
-        self.validate_affectation_hard_constraints(soignant, poste)
+        # Validation des contraintes dures (Phase 2)
+        self.validate_assignment_hard_constraints(staff, shift)
         serializer.save()
 
-    def validate_affectation_hard_constraints(self, soignant, poste):
+    def validate_assignment_hard_constraints(self, staff, shift):
         # 1. Chevauchement horaires
-        chevauchement = Affectation.objects.filter(
-            soignant=soignant,
-            statut='VALIDE',
-            poste__debut_prevu__lt=poste.fin_prevue,
-            poste__fin_prevue__gt=poste.debut_prevu
+        chevauchement = ShiftAssignment.objects.filter(
+            staff=staff,
+            shift__start_datetime__lt=shift.end_datetime,
+            shift__end_datetime__gt=shift.start_datetime
         ).exists()
         if chevauchement:
-            raise ValidationError("Le soignant a déjà une affectation sur ce créneau horaire.")
+            raise ValidationError("The staff member already has an assignment during this time frame.")
 
         # 2. Certifications
-        for certif in poste.certifications_requises.all():
-            has_certif = SoignantCertification.objects.filter(
-                soignant=soignant,
+        for certif in shift.required_certifications.all():
+            has_certif = StaffCertification.objects.filter(
+                staff=staff,
                 certification=certif,
-                date_obtention__lte=poste.debut_prevu.date()
+                obtained_date__lte=shift.start_datetime.date()
             ).filter(
-                Q(date_expiration__isnull=True) | Q(date_expiration__gte=poste.fin_prevue.date())
+                Q(expiration_date__isnull=True) | Q(expiration_date__gte=shift.end_datetime.date())
             ).exists()
             if not has_certif:
-                raise ValidationError(f"Le soignant manque la certification requise ou expirée : {certif.libelle}")
+                raise ValidationError(f"The staff member lacks the required certification: {certif.name}")
 
         # 3. Repos post nuit obligatoire
-        regle_repos = RegleLegale.objects.filter(code='REPOS_MIN_POST_NUIT').first()
-        repos_heures = float(regle_repos.valeur_numerique) if regle_repos else 11.0
+        rule_rest = Rule.objects.filter(rule_type='REST_TIME_POST_NIGHT').first()
+        rest_hours = float(rule_rest.value) if rule_rest else 11.0
         
-        dernieres_gardes_nuits = Affectation.objects.filter(
-            soignant=soignant,
-            statut='VALIDE',
-            poste__type_garde__is_nuit=True,
-            poste__fin_prevue__lte=poste.debut_prevu
-        ).order_by('-poste__fin_prevue').first()
+        if shift.shift_type.requires_rest_after: # Assuming requires_rest_after refers to Night shifts or intense shifts
+            pass # We calculate rest before this new shift
+            
+        last_night_shift = ShiftAssignment.objects.filter(
+            staff=staff,
+            shift__shift_type__requires_rest_after=True,
+            shift__end_datetime__lte=shift.start_datetime
+        ).order_by('-shift__end_datetime').first()
         
-        if dernieres_gardes_nuits:
-            heures_repos = (poste.debut_prevu - dernieres_gardes_nuits.poste.fin_prevue).total_seconds() / 3600.0
-            if heures_repos < repos_heures:
-                raise ValidationError(f"Le soignant n'a pas respecté le repos obligatoire de {repos_heures}h après une nuit. (Repos de {int(heures_repos)}h constaté)")
+        if last_night_shift:
+            hours_rest = (shift.start_datetime - last_night_shift.shift.end_datetime).total_seconds() / 3600.0
+            if hours_rest < rest_hours:
+                raise ValidationError(f"Mandatory rest period of {rest_hours}h not respected. Only {int(hours_rest)}h passed.")
 
-        # 4. Autorisation du contrat et type d'heure
-        contrat_actif = Contrat.objects.filter(
-            soignant=soignant,
-            date_debut__lte=poste.debut_prevu.date()
+        # 4. Autorisation du contrat
+        active_contract = Contract.objects.filter(
+            staff=staff,
+            start_date__lte=shift.start_datetime.date()
         ).filter(
-            Q(date_fin__isnull=True) | Q(date_fin__gte=poste.fin_prevue.date())
+            Q(end_date__isnull=True) | Q(end_date__gte=shift.end_datetime.date())
         ).first()
 
-        if not contrat_actif:
-            raise ValidationError("Le soignant n'a aucun contrat actif à la date de la garde.")
+        if not active_contract:
+            raise ValidationError("No active contract found for this date.")
             
-        if poste.type_garde.is_nuit and not soignant.grade.eligibilite_garde_nuit:
-            raise ValidationError(f"Le grade '{soignant.grade.libelle}' n'est pas éligible aux gardes de nuit.")
+        if shift.shift_type.requires_rest_after and not active_contract.contract_type.night_shift_allowed:
+            raise ValidationError(f"Contract type {active_contract.contract_type.name} does not allow night/intense shifts.")
 
         # 5. Absence
-        en_absence = Absence.objects.filter(
-            soignant=soignant,
-            date_debut__lte=poste.fin_prevue.date()
+        in_absence = Absence.objects.filter(
+            staff=staff,
+            start_date__lte=shift.end_datetime.date()
         ).filter(
-            Q(date_fin_reelle__isnull=True, date_fin_prevue__gte=poste.debut_prevu.date()) |
-            Q(date_fin_reelle__gte=poste.debut_prevu.date())
+            Q(actual_end_date__isnull=True, expected_end_date__gte=shift.start_datetime.date()) |
+            Q(actual_end_date__gte=shift.start_datetime.date())
         ).exists()
-        if en_absence:
-            raise ValidationError("Le soignant est en absence déclarée/maladie sur cette période.")
+        if in_absence:
+            raise ValidationError("Staff is marked as absent or on sick leave during this period.")
 
-        # 6. Heures max hebdos (Somme simplifiée pour l'exemple)
-        if contrat_actif.heures_max_hebdo:
-            start_week = poste.debut_prevu - datetime.timedelta(days=poste.debut_prevu.weekday())
+        # 6. Heures max hebdos
+        max_weekly = active_contract.contract_type.max_hours_per_week
+        if max_weekly:
+            start_week = shift.start_datetime - datetime.timedelta(days=shift.start_datetime.weekday())
             end_week = start_week + datetime.timedelta(days=6)
             
-            gardes_semaine = Affectation.objects.filter(
-                soignant=soignant, statut='VALIDE',
-                poste__debut_prevu__gte=start_week,
-                poste__debut_prevu__lte=end_week
+            week_assignments = ShiftAssignment.objects.filter(
+                staff=staff,
+                shift__start_datetime__gte=start_week,
+                shift__start_datetime__lte=end_week
             )
-            total_heures = sum([(g.poste.fin_prevue - g.poste.debut_prevu).total_seconds()/3600.0 for g in gardes_semaine])
-            duree_futur_poste = (poste.fin_prevue - poste.debut_prevu).total_seconds() / 3600.0
+            total_hours = sum([(g.shift.end_datetime - g.shift.start_datetime).total_seconds()/3600.0 for g in week_assignments])
+            future_shift_hours = (shift.end_datetime - shift.start_datetime).total_seconds() / 3600.0
             
-            if (total_heures + duree_futur_poste) > float(contrat_actif.heures_max_hebdo):
-                raise ValidationError(f"Plancher d'heures dépassé : Ce poste ferait dépasser les {contrat_actif.heures_max_hebdo}h max hebdos.")
+            if (total_hours + future_shift_hours) > float(max_weekly):
+                raise ValidationError(f"Weekly maximum of {max_weekly}h exceeded.")

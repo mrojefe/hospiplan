@@ -1,44 +1,44 @@
 from rest_framework import serializers
-from .models import Soignant, PosteGarde, Affectation, Absence, TypeAbsence, Grade
+from .models import Staff, Shift, ShiftAssignment, Absence, AbsenceType, Role
 
-class GradeSerializer(serializers.ModelSerializer):
+class RoleSerializer(serializers.ModelSerializer):
     class Meta:
-        model = Grade
+        model = Role
         fields = '__all__'
 
-class SoignantSerializer(serializers.ModelSerializer):
-    grade_libelle = serializers.CharField(source='grade.libelle', read_only=True)
+class StaffSerializer(serializers.ModelSerializer):
+    roles = RoleSerializer(many=True, read_only=True)
 
     class Meta:
-        model = Soignant
-        fields = ['id', 'matricule', 'nom', 'prenom', 'email', 'telephone', 'is_actif', 'grade', 'grade_libelle']
+        model = Staff
+        fields = ['id', 'first_name', 'last_name', 'email', 'phone', 'is_active', 'roles']
 
-class PosteGardeSerializer(serializers.ModelSerializer):
-    type_garde_libelle = serializers.CharField(source='type_garde.libelle', read_only=True)
-    unite_nom = serializers.CharField(source='unite.nom', read_only=True)
-
-    class Meta:
-        model = PosteGarde
-        fields = ['id', 'unite', 'unite_nom', 'type_garde', 'type_garde_libelle', 'debut_prevu', 'fin_prevue', 'nb_soignants_min', 'nb_soignants_max']
-
-class AffectationSerializer(serializers.ModelSerializer):
-    soignant_nom = serializers.CharField(source='soignant.nom', read_only=True)
-    soignant_prenom = serializers.CharField(source='soignant.prenom', read_only=True)
-    poste_debut = serializers.DateTimeField(source='poste.debut_prevu', read_only=True)
-    poste_fin = serializers.DateTimeField(source='poste.fin_prevue', read_only=True)
+class ShiftSerializer(serializers.ModelSerializer):
+    care_unit_name = serializers.CharField(source='care_unit.name', read_only=True)
+    shift_type_name = serializers.CharField(source='shift_type.name', read_only=True)
 
     class Meta:
-        model = Affectation
-        fields = ['id', 'poste', 'soignant', 'statut', 'soignant_nom', 'soignant_prenom', 'poste_debut', 'poste_fin']
+        model = Shift
+        fields = ['id', 'care_unit', 'care_unit_name', 'shift_type', 'shift_type_name', 'start_datetime', 'end_datetime', 'min_staff', 'max_staff']
 
-class TypeAbsenceSerializer(serializers.ModelSerializer):
+class ShiftAssignmentSerializer(serializers.ModelSerializer):
+    staff_first_name = serializers.CharField(source='staff.first_name', read_only=True)
+    staff_last_name = serializers.CharField(source='staff.last_name', read_only=True)
+    shift_start = serializers.DateTimeField(source='shift.start_datetime', read_only=True)
+    shift_end = serializers.DateTimeField(source='shift.end_datetime', read_only=True)
+
     class Meta:
-        model = TypeAbsence
+        model = ShiftAssignment
+        fields = ['id', 'shift', 'staff', 'assigned_at', 'staff_first_name', 'staff_last_name', 'shift_start', 'shift_end']
+
+class AbsenceTypeSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = AbsenceType
         fields = '__all__'
 
 class AbsenceSerializer(serializers.ModelSerializer):
-    type_libelle = serializers.CharField(source='type_absence.libelle', read_only=True)
+    type_name = serializers.CharField(source='absence_type.name', read_only=True)
 
     class Meta:
         model = Absence
-        fields = ['id', 'soignant', 'type_absence', 'type_libelle', 'date_debut', 'date_fin_prevue', 'date_fin_reelle']
+        fields = ['id', 'staff', 'absence_type', 'type_name', 'start_date', 'expected_end_date', 'actual_end_date', 'is_planned']

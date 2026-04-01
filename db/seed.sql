@@ -1,123 +1,124 @@
 -- =========================================================================
 -- HospiPlan - Script de Population (Seed)
--- Insère un jeu de données de test couvrant tous les cas des exigences.
+-- D'après le schéma à 24 tables.
 -- =========================================================================
 
--- Vider manuellement ou confier au schema.sql le DROP.
+-- ROLE
+INSERT INTO role (id, name) VALUES
+(1, 'Médecin'),
+(2, 'Infirmier'),
+(3, 'Aide-Soignant'),
+(4, 'Stagiaire');
 
--- REGLES LÉGALES (F-10)
-INSERT INTO REGLE_LEGALE (code, description, valeur_numerique, unite) VALUES
-('MAX_HEURES_HEBDO', 'Maximum d''heures travaillées par semaine', 48.0, 'heures'),
-('MAX_NUIT_CONSECUTIVES', 'Nombre maximum de nuits d''affilée', 3.0, 'jours'),
-('REPOS_MIN_POST_NUIT', 'Temps de repos obligatoire après une nuit', 11.0, 'heures');
+-- STAFF
+INSERT INTO staff (id, first_name, last_name, email, phone, is_active) VALUES
+(1, 'Jean', 'Dupont', 'j.dupont@alamal.ext', '0600010203', true),
+(2, 'Sophie', 'Martin', 's.martin@alamal.ext', '0600010204', true),
+(3, 'Amadou', 'Diop', 'a.diop@alamal.ext', '0600010205', true);
 
--- GRADES (F-01)
-INSERT INTO GRADE (id, libelle, eligibilite_garde_nuit) VALUES
-(1, 'Médecin Senior', TRUE),
-(2, 'Interne', TRUE),
-(3, 'Infirmier(ère)', TRUE),
-(4, 'Stagiaire', FALSE);
+-- STAFF_ROLE
+INSERT INTO staff_role (staff_id, role_id) VALUES
+(1, 1), (2, 2), (3, 3);
 
--- SPÉCIALITÉS (F-01)
-INSERT INTO SPECIALITE (id, libelle, parent_id) VALUES
+-- SPECIALTY
+INSERT INTO specialty (id, name, parent_id) VALUES
 (1, 'Médecine Générale', NULL),
 (2, 'Urgences', 1),
-(3, 'Cardiologie', NULL),
-(4, 'Cardiologie Pédiatrique', 3);
+(3, 'Cardiologie', NULL);
 
--- SOIGNANTS
-INSERT INTO SOIGNANT (id, matricule, nom, prenom, email, telephone, is_actif, grade_id) VALUES
-(1, 'MAT001', 'Dupont', 'Jean', 'jean.dupont@alamal.ext', '0600000001', TRUE, 1),
-(2, 'MAT002', 'Martin', 'Sophie', 'sophie.martin@alamal.ext', '0600000002', TRUE, 3),
-(3, 'MAT003', 'Diop', 'Amadou', 'amadou.diop@alamal.ext', '0600000003', TRUE, 2),
-(4, 'MAT004', 'Chen', 'Zoe', 'zoe.chen@alamal.ext', '0600000004', TRUE, 4); -- stagiaire
+-- STAFF_SPECIALTY
+INSERT INTO staff_specialty (staff_id, specialty_id) VALUES
+(1, 2), (1, 1), (2, 3);
 
--- SOIGNANTS SPÉCIALITÉS
-INSERT INTO SOIGNANT_SPECIALITE (soignant_id, specialite_id) VALUES
-(1, 1), (1, 2), -- Jean est Généraliste et Urgentiste
-(3, 3); -- Amadou est Interne en Cardio
+-- CONTRACT_TYPE
+INSERT INTO contract_type (id, name, max_hours_per_week, leave_days_per_year, night_shift_allowed) VALUES
+(1, 'CDI Plein Temps', 35, 25, true),
+(2, 'CDD', 35, 25, true),
+(3, 'Stage', 35, 0, false);
 
--- CONTRATS (F-02)
-INSERT INTO CONTRAT (soignant_id, type_contrat, date_debut, date_fin, pourcentage_tps_travail, heures_max_hebdo) VALUES
-(1, 'CDI', '2020-01-01', NULL, 1.0, 48.0),
-(2, 'CDD', '2023-01-01', '2023-12-31', 0.5, 24.0), -- Ancien contrat mi-temps
-(2, 'CDI', '2024-01-01', NULL, 1.0, 35.0), -- Nouveau contrat plein temps
-(3, 'CDD', '2024-03-01', '2024-08-31', 1.0, 48.0),
-(4, 'STAGE', '2024-04-01', '2024-06-30', 1.0, 35.0);
+-- CONTRACT
+INSERT INTO contract (id, staff_id, contract_type_id, start_date, end_date, workload_percent) VALUES
+(1, 1, 1, '2020-01-01', NULL, 100),
+(2, 2, 1, '2022-01-01', NULL, 100),
+(3, 3, 2, '2024-01-01', '2024-12-31', 80);
 
--- CERTIFICATIONS (F-03)
-INSERT INTO CERTIFICATION (id, libelle, prerequis_id) VALUES
-(1, 'Réanimation Basique (BLS)', NULL),
-(2, 'Réanimation Avancée (ACLS)', 1), -- Exige BLS
-(3, 'Triage Urgences', NULL);
+-- CERTIFICATION
+INSERT INTO certification (id, name) VALUES
+(1, 'BLS (Basic Life Support)'),
+(2, 'ACLS (Advanced Cardiovascular Life Support)');
 
--- CERTIFICATIONS OBTENUES
-INSERT INTO SOIGNANT_CERTIFICATION (soignant_id, certification_id, date_obtention, date_expiration) VALUES
-(1, 1, '2018-05-10', NULL),
-(1, 2, '2020-06-15', '2025-06-15'), -- expire dans le futur
-(2, 1, '2021-01-10', '2023-01-10'), -- expirée !!
-(2, 3, '2022-03-05', NULL);
+-- CERTIFICATION_DEPENDENCY
+INSERT INTO certification_dependency (parent_cert_id, required_cert_id) VALUES
+(2, 1);
 
--- SERVICES (F-04)
-INSERT INTO SERVICE (id, nom, capacite_lits, niveau_criticite, soignant_responsable_id) VALUES
-(1, 'Urgences', 50, 5, 1),
-(2, 'Cardiologie', 30, 4, 1);
+-- STAFF_CERTIFICATION
+INSERT INTO staff_certification (id, staff_id, certification_id, obtained_date, expiration_date) VALUES
+(1, 1, 1, '2023-01-01', '2028-01-01'),
+(2, 1, 2, '2023-06-01', '2028-06-01'),
+(3, 2, 1, '2021-01-01', '2026-01-01');
 
--- ÉTAT SERVICES (Historique)
-INSERT INTO ETAT_SERVICE (service_id, statut, date_debut, date_fin) VALUES
-(2, 'SOUS_EFFECTIF', '2024-03-01', '2024-03-15');
+-- SERVICE
+INSERT INTO service (id, name, manager_id, bed_capacity, criticality_level) VALUES
+(1, 'Urgences', 1, 30, 5),
+(2, 'Cardiologie', NULL, 40, 3);
 
--- UNITÉS DE SOIN
-INSERT INTO UNITE_SOIN (id, service_id, nom) VALUES
-(1, 1, 'Triage Urgences'),
-(2, 1, 'Réanimation Urgences'),
-(3, 2, 'Soins Continus Cardio');
+-- CARE_UNIT
+INSERT INTO care_unit (id, service_id, name) VALUES
+(1, 1, 'Triage'),
+(2, 1, 'Déchoquage'),
+(3, 2, 'Soins Continus');
 
--- AFFECTATIONS SOIGNANTS AUX SERVICES
-INSERT INTO SOIGNANT_SERVICE (soignant_id, service_id, date_debut, date_fin) VALUES
-(1, 1, '2020-01-01', NULL),
-(2, 1, '2023-01-01', NULL),
-(3, 2, '2024-03-01', NULL);
+-- SERVICE_STATUS
+INSERT INTO service_status (id, service_id, status, start_date, end_date) VALUES
+(1, 2, 'SOUS_EFFECTIF', '2024-03-01', '2024-03-15');
 
--- TYPES DE GARDE (F-05)
-INSERT INTO TYPE_GARDE (id, libelle, is_nuit, is_astreinte, duree_standard_heures) VALUES
-(1, 'Garde Jour 12H', FALSE, FALSE, 12.0),
-(2, 'Garde Nuit 12H', TRUE, FALSE, 12.0),
-(3, 'Astreinte Week-End', FALSE, TRUE, 24.0);
+-- STAFF_SERVICE_ASSIGNMENT
+INSERT INTO staff_service_assignment (id, staff_id, service_id, start_date, end_date) VALUES
+(1, 1, 1, '2020-01-01', NULL),
+(2, 2, 2, '2022-01-01', NULL);
 
--- POSTES DE GARDE
-INSERT INTO POSTE_GARDE (id, unite_id, type_garde_id, debut_prevu, fin_prevue, nb_soignants_min, nb_soignants_max) VALUES
-(1, 1, 1, '2024-04-10 08:00:00', '2024-04-10 20:00:00', 2, 4), -- Urgences Triage Jour
-(2, 2, 2, '2024-04-10 20:00:00', '2024-04-11 08:00:00', 1, 2); -- Urgences Réa Nuit
+-- SHIFT_TYPE
+INSERT INTO shift_type (id, name, duration_hours, requires_rest_after) VALUES
+(1, 'Jour (12h)', 12, true),
+(2, 'Nuit (12h)', 12, true),
+(3, 'Matin (8h)', 8, false);
 
--- CERTIFICATIONS REQUISES POUR LES POSTES
-INSERT INTO POSTE_CERTIFICATION_REQUISE (poste_id, certification_id) VALUES
-(1, 3), -- Triage Urgences exige certification Triage
-(2, 2); -- Réa Urgences exige ACLS
+-- SHIFT
+INSERT INTO shift (id, care_unit_id, shift_type_id, start_datetime, end_datetime, min_staff, max_staff) VALUES
+(1, 1, 1, '2024-04-10 08:00:00', '2024-04-10 20:00:00', 2, 4),
+(2, 2, 2, '2024-04-10 20:00:00', '2024-04-11 08:00:00', 1, 2);
 
--- TYPES D'ABSENCES
-INSERT INTO TYPE_ABSENCE (id, libelle, impacte_quota_garde) VALUES
-(1, 'Congés Payés', TRUE),
-(2, 'Maladie', TRUE),
-(3, 'Formation', FALSE);
+-- SHIFT_REQUIRED_CERTIFICATION
+INSERT INTO shift_required_certification (shift_id, certification_id) VALUES
+(2, 2); -- Déchoquage nécessite ACLS
 
--- ABSENCES (F-06)
-INSERT INTO ABSENCE (soignant_id, type_absence_id, date_debut, date_fin_prevue, date_fin_reelle) VALUES
-(3, 1, '2024-04-05', '2024-04-15', NULL); -- Amadou est en congés, il ne pourra pas couvrir la garde du 10.
+-- SHIFT_ASSIGNMENT
+INSERT INTO shift_assignment (id, shift_id, staff_id, assigned_at) VALUES
+(1, 1, 1, '2024-04-01 10:00:00');
 
--- AFFECTATIONS (Gardes Réalisées / Prévues)
-INSERT INTO AFFECTATION (poste_id, soignant_id, statut) VALUES
-(1, 1, 'VALIDE'), -- Jean fait la garde de jour aux urgences
-(2, 1, 'VALIDE'); -- Attention: Contrainte dure "repos 11h" sera enfreinte si système complet (Vérifié logiquement côté backend Phase 2)
+-- ABSENCE_TYPE
+INSERT INTO absence_type (id, name, impacts_quota) VALUES
+(1, 'Congés Payés', true),
+(2, 'Maladie', true),
+(3, 'Formation', false);
 
--- CONTRAINTES DECLARÉES (F-07)
-INSERT INTO CONTRAINTE_SOIGNANT (soignant_id, description, est_imperative, datetime_debut, datetime_fin, valide_jusqu_au) VALUES
-(2, 'Indisponible les vendredis mâtin (Religion)', TRUE, '2024-01-01 06:00:00', '2024-01-01 12:00:00', NULL);
+-- ABSENCE
+INSERT INTO absence (id, staff_id, absence_type_id, start_date, expected_end_date, actual_end_date, is_planned) VALUES
+(1, 3, 1, '2024-04-05', '2024-04-15', NULL, true);
 
--- CHARGE PATIENTE (F-08)
-INSERT INTO CHARGE_PATIENTE (unite_id, date_releve, nombre_patients) VALUES
-(1, '2024-04-09', 45);
+-- PREFERENCE
+INSERT INTO preference (id, staff_id, type, description, is_hard_constraint, start_date, end_date) VALUES
+(1, 2, 'RELIGION', 'Indisponible les vendredis mâtin', true, '2024-01-01', '2025-01-01');
 
--- PRETS INTER-SERVICES (F-09)
-INSERT INTO PRET_SERVICE (soignant_id, service_origine_id, service_destination_id, date_debut, date_fin) VALUES
-(2, 1, 2, '2024-03-05 08:00:00', '2024-03-05 20:00:00'); -- Sophie a prêté main forte en cardio un jour.
+-- PATIENT_LOAD
+INSERT INTO patient_load (id, care_unit_id, date, patient_count, occupancy_rate) VALUES
+(1, 1, '2024-04-09', 25, 0.83);
+
+-- STAFF_LOAN
+INSERT INTO staff_loan (id, staff_id, from_service_id, to_service_id, start_date, end_date) VALUES
+(1, 2, 2, 1, '2024-03-05', '2024-03-06');
+
+-- RULE
+INSERT INTO rule (id, name, description, rule_type, value, unit, valid_from, valid_to) VALUES
+(1, 'Repos Minimum', '11h de repos obligatoire après une nuit', 'REST_TIME_POST_NIGHT', 11, 'hours', '2020-01-01', NULL),
+(2, 'Heures Max', 'Code du travail: 48h max sur la semaine', 'MAX_WEEKLY_HOURS', 48, 'hours', '2020-01-01', NULL);

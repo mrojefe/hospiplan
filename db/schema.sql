@@ -1,201 +1,190 @@
 -- =========================================================================
 -- HospiPlan - Script de Création du Schéma (Phase 1)
--- Dialecte : PostgreSQL
--- Description : Définition des DDL, clés, contraintes d'intégrité (3NF)
+-- Modèle : 24 tables (Anglais) d'après la proposition pédagogique
 -- =========================================================================
 
--- Re-création complète (Drop des tables si existantes)
 DROP SCHEMA IF EXISTS public CASCADE;
 CREATE SCHEMA public;
 
--- 1. Référentiels et Configuration
+CREATE TABLE staff ( 
+    id SERIAL PRIMARY KEY, 
+    first_name VARCHAR(100) NOT NULL, 
+    last_name VARCHAR(100) NOT NULL, 
+    email VARCHAR(255) UNIQUE NOT NULL, 
+    phone VARCHAR(20), 
+    is_active BOOLEAN DEFAULT true, 
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP 
+); 
 
-CREATE TABLE REGLE_LEGALE (
-    code VARCHAR(50) PRIMARY KEY,
-    description TEXT,
-    valeur_numerique NUMERIC(10,2) NOT NULL,
-    unite VARCHAR(20) NOT NULL
+CREATE TABLE role ( 
+    id SERIAL PRIMARY KEY, 
+    name VARCHAR(100) NOT NULL 
+); 
+
+CREATE TABLE staff_role ( 
+    staff_id INT NOT NULL REFERENCES staff(id) ON DELETE CASCADE, 
+    role_id INT NOT NULL REFERENCES role(id) ON DELETE CASCADE, 
+    PRIMARY KEY (staff_id, role_id) 
+); 
+
+CREATE TABLE specialty ( 
+    id SERIAL PRIMARY KEY, 
+    name VARCHAR(100) NOT NULL, 
+    parent_id INT REFERENCES specialty(id) ON DELETE SET NULL 
+); 
+
+CREATE TABLE staff_specialty ( 
+    staff_id INT NOT NULL REFERENCES staff(id) ON DELETE CASCADE, 
+    specialty_id INT NOT NULL REFERENCES specialty(id) ON DELETE CASCADE, 
+    PRIMARY KEY (staff_id, specialty_id) 
+); 
+
+CREATE TABLE contract_type ( 
+    id SERIAL PRIMARY KEY, 
+    name VARCHAR(50) NOT NULL, 
+    max_hours_per_week INT, 
+    leave_days_per_year INT, 
+    night_shift_allowed BOOLEAN DEFAULT true 
+); 
+
+CREATE TABLE contract ( 
+    id SERIAL PRIMARY KEY, 
+    staff_id INT NOT NULL REFERENCES staff(id) ON DELETE CASCADE, 
+    contract_type_id INT NOT NULL REFERENCES contract_type(id), 
+    start_date DATE NOT NULL, 
+    end_date DATE, 
+    workload_percent INT DEFAULT 100 
+); 
+
+CREATE TABLE certification ( 
+    id SERIAL PRIMARY KEY, 
+    name VARCHAR(150) NOT NULL 
+); 
+
+CREATE TABLE certification_dependency ( 
+    parent_cert_id INT NOT NULL REFERENCES certification(id) ON DELETE CASCADE, 
+    required_cert_id INT NOT NULL REFERENCES certification(id) ON DELETE CASCADE, 
+    PRIMARY KEY (parent_cert_id, required_cert_id) 
+); 
+
+CREATE TABLE staff_certification ( 
+    id SERIAL PRIMARY KEY, 
+    staff_id INT NOT NULL REFERENCES staff(id) ON DELETE CASCADE, 
+    certification_id INT NOT NULL REFERENCES certification(id) ON DELETE CASCADE, 
+    obtained_date DATE NOT NULL, 
+    expiration_date DATE 
+); 
+
+CREATE TABLE service ( 
+    id SERIAL PRIMARY KEY, 
+    name VARCHAR(100) NOT NULL, 
+    manager_id INT REFERENCES staff(id) ON DELETE SET NULL, 
+    bed_capacity INT NOT NULL, 
+    criticality_level INT DEFAULT 1 
+); 
+
+CREATE TABLE care_unit ( 
+    id SERIAL PRIMARY KEY, 
+    service_id INT NOT NULL REFERENCES service(id) ON DELETE CASCADE, 
+    name VARCHAR(100) NOT NULL 
+); 
+
+CREATE TABLE service_status ( 
+    id SERIAL PRIMARY KEY, 
+    service_id INT NOT NULL REFERENCES service(id) ON DELETE CASCADE, 
+    status VARCHAR(50) NOT NULL, 
+    start_date DATE NOT NULL, 
+    end_date DATE 
+); 
+
+CREATE TABLE staff_service_assignment ( 
+    id SERIAL PRIMARY KEY, 
+    staff_id INT NOT NULL REFERENCES staff(id) ON DELETE CASCADE, 
+    service_id INT NOT NULL REFERENCES service(id) ON DELETE CASCADE, 
+    start_date DATE NOT NULL, 
+    end_date DATE 
+); 
+
+CREATE TABLE shift_type ( 
+    id SERIAL PRIMARY KEY, 
+    name VARCHAR(50) NOT NULL, 
+    duration_hours INT NOT NULL, 
+    requires_rest_after BOOLEAN DEFAULT true 
+); 
+
+CREATE TABLE shift ( 
+    id SERIAL PRIMARY KEY, 
+    care_unit_id INT NOT NULL REFERENCES care_unit(id) ON DELETE CASCADE, 
+    shift_type_id INT NOT NULL REFERENCES shift_type(id), 
+    start_datetime TIMESTAMP NOT NULL, 
+    end_datetime TIMESTAMP NOT NULL, 
+    min_staff INT DEFAULT 1, 
+    max_staff INT 
+); 
+
+CREATE TABLE shift_required_certification ( 
+    shift_id INT NOT NULL REFERENCES shift(id) ON DELETE CASCADE, 
+    certification_id INT NOT NULL REFERENCES certification(id) ON DELETE CASCADE, 
+    PRIMARY KEY (shift_id, certification_id) 
+); 
+
+CREATE TABLE shift_assignment ( 
+    id SERIAL PRIMARY KEY, 
+    shift_id INT NOT NULL REFERENCES shift(id) ON DELETE CASCADE, 
+    staff_id INT NOT NULL REFERENCES staff(id) ON DELETE RESTRICT, 
+    assigned_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP 
+); 
+
+CREATE TABLE absence_type ( 
+    id SERIAL PRIMARY KEY, 
+    name VARCHAR(50) NOT NULL, 
+    impacts_quota BOOLEAN DEFAULT true 
+); 
+
+CREATE TABLE absence ( 
+    id SERIAL PRIMARY KEY, 
+    staff_id INT NOT NULL REFERENCES staff(id) ON DELETE CASCADE, 
+    absence_type_id INT NOT NULL REFERENCES absence_type(id), 
+    start_date DATE NOT NULL, 
+    expected_end_date DATE NOT NULL, 
+    actual_end_date DATE, 
+    is_planned BOOLEAN DEFAULT true 
+); 
+
+CREATE TABLE preference ( 
+    id SERIAL PRIMARY KEY, 
+    staff_id INT NOT NULL REFERENCES staff(id) ON DELETE CASCADE, 
+    type VARCHAR(50), 
+    description TEXT, 
+    is_hard_constraint BOOLEAN DEFAULT false, 
+    start_date DATE NOT NULL, 
+    end_date DATE 
+); 
+
+CREATE TABLE patient_load ( 
+    id SERIAL PRIMARY KEY, 
+    care_unit_id INT NOT NULL REFERENCES care_unit(id) ON DELETE CASCADE, 
+    date DATE NOT NULL, 
+    patient_count INT NOT NULL, 
+    occupancy_rate FLOAT 
+); 
+
+CREATE TABLE staff_loan ( 
+    id SERIAL PRIMARY KEY, 
+    staff_id INT NOT NULL REFERENCES staff(id) ON DELETE CASCADE, 
+    from_service_id INT NOT NULL REFERENCES service(id) ON DELETE CASCADE, 
+    to_service_id INT NOT NULL REFERENCES service(id) ON DELETE CASCADE, 
+    start_date DATE NOT NULL, 
+    end_date DATE NOT NULL 
+); 
+
+CREATE TABLE rule ( 
+    id SERIAL PRIMARY KEY, 
+    name VARCHAR(100) NOT NULL, 
+    description TEXT, 
+    rule_type VARCHAR(50), 
+    value NUMERIC NOT NULL, 
+    unit VARCHAR(20), 
+    valid_from DATE NOT NULL, 
+    valid_to DATE 
 );
-
-CREATE TABLE GRADE (
-    id SERIAL PRIMARY KEY,
-    libelle VARCHAR(100) NOT NULL UNIQUE,
-    eligibilite_garde_nuit BOOLEAN DEFAULT TRUE
-);
-
-CREATE TABLE SPECIALITE (
-    id SERIAL PRIMARY KEY,
-    libelle VARCHAR(100) NOT NULL,
-    parent_id INT REFERENCES SPECIALITE(id) ON DELETE SET NULL
-);
-
--- 2. Entités de Base Personnels
-
-CREATE TABLE SOIGNANT (
-    id SERIAL PRIMARY KEY,
-    matricule VARCHAR(50) NOT NULL UNIQUE,
-    nom VARCHAR(100) NOT NULL,
-    prenom VARCHAR(100) NOT NULL,
-    email VARCHAR(150),
-    telephone VARCHAR(20),
-    is_actif BOOLEAN NOT NULL DEFAULT TRUE,
-    grade_id INT NOT NULL REFERENCES GRADE(id)
-);
-
-CREATE TABLE SOIGNANT_SPECIALITE (
-    soignant_id INT REFERENCES SOIGNANT(id) ON DELETE CASCADE,
-    specialite_id INT REFERENCES SPECIALITE(id) ON DELETE CASCADE,
-    PRIMARY KEY(soignant_id, specialite_id)
-);
-
-CREATE TABLE CONTRAT (
-    id SERIAL PRIMARY KEY,
-    soignant_id INT NOT NULL REFERENCES SOIGNANT(id) ON DELETE CASCADE,
-    type_contrat VARCHAR(50) NOT NULL, -- 'CDI', 'CDD', 'INTERIM', 'STAGE'...
-    date_debut DATE NOT NULL,
-    date_fin DATE, -- NULL = Contrat en cours
-    pourcentage_tps_travail NUMERIC(3,2) NOT NULL CHECK(pourcentage_tps_travail > 0 AND pourcentage_tps_travail <= 1.0),
-    heures_max_hebdo NUMERIC(4,1),
-    CONSTRAINT chk_dates_contrat CHECK (date_fin IS NULL OR date_fin >= date_debut)
-);
-
--- 3. Compétences & Formations
-
-CREATE TABLE CERTIFICATION (
-    id SERIAL PRIMARY KEY,
-    libelle VARCHAR(100) NOT NULL,
-    prerequis_id INT REFERENCES CERTIFICATION(id) ON DELETE SET NULL
-);
-
-CREATE TABLE SOIGNANT_CERTIFICATION (
-    id SERIAL PRIMARY KEY,
-    soignant_id INT NOT NULL REFERENCES SOIGNANT(id) ON DELETE CASCADE,
-    certification_id INT NOT NULL REFERENCES CERTIFICATION(id) ON DELETE CASCADE,
-    date_obtention DATE NOT NULL,
-    date_expiration DATE, -- Si NULL, certif permanente
-    CONSTRAINT chk_dates_certif CHECK (date_expiration IS NULL OR date_expiration >= date_obtention)
-);
-
--- 4. Structure Hospitalière
-
-CREATE TABLE SERVICE (
-    id SERIAL PRIMARY KEY,
-    nom VARCHAR(100) NOT NULL UNIQUE,
-    capacite_lits INT NOT NULL CHECK(capacite_lits >= 0),
-    niveau_criticite INT DEFAULT 1,
-    soignant_responsable_id INT REFERENCES SOIGNANT(id) ON DELETE SET NULL
-);
-
-CREATE TABLE ETAT_SERVICE (
-    id SERIAL PRIMARY KEY,
-    service_id INT NOT NULL REFERENCES SERVICE(id) ON DELETE CASCADE,
-    statut VARCHAR(20) NOT NULL, -- 'OUVERT', 'FERME', 'SOUS_EFFECTIF'
-    date_debut DATE NOT NULL,
-    date_fin DATE,
-    CONSTRAINT chk_dates_etat_service CHECK (date_fin IS NULL OR date_fin >= date_debut)
-);
-
-CREATE TABLE UNITE_SOIN (
-    id SERIAL PRIMARY KEY,
-    service_id INT NOT NULL REFERENCES SERVICE(id) ON DELETE CASCADE,
-    nom VARCHAR(100) NOT NULL
-);
-
-CREATE TABLE SOIGNANT_SERVICE (
-    id SERIAL PRIMARY KEY,
-    soignant_id INT NOT NULL REFERENCES SOIGNANT(id) ON DELETE CASCADE,
-    service_id INT NOT NULL REFERENCES SERVICE(id) ON DELETE CASCADE,
-    date_debut DATE NOT NULL,
-    date_fin DATE,
-    CONSTRAINT chk_dates_soignant_service CHECK (date_fin IS NULL OR date_fin >= date_debut)
-);
-
-CREATE TABLE CHARGE_PATIENTE (
-    id SERIAL PRIMARY KEY,
-    unite_id INT NOT NULL REFERENCES UNITE_SOIN(id) ON DELETE CASCADE,
-    date_releve DATE NOT NULL,
-    nombre_patients INT NOT NULL CHECK(nombre_patients >= 0),
-    UNIQUE(unite_id, date_releve) -- Un seul relevé par jour et par unité
-);
-
--- 5. Planification et Gardes
-
-CREATE TABLE TYPE_GARDE (
-    id SERIAL PRIMARY KEY,
-    libelle VARCHAR(50) NOT NULL,
-    is_nuit BOOLEAN DEFAULT FALSE,
-    is_astreinte BOOLEAN DEFAULT FALSE,
-    duree_standard_heures NUMERIC(4,2) NOT NULL
-);
-
-CREATE TABLE POSTE_GARDE (
-    id SERIAL PRIMARY KEY,
-    unite_id INT NOT NULL REFERENCES UNITE_SOIN(id) ON DELETE CASCADE,
-    type_garde_id INT NOT NULL REFERENCES TYPE_GARDE(id),
-    debut_prevu TIMESTAMP NOT NULL,
-    fin_prevue TIMESTAMP NOT NULL,
-    nb_soignants_min INT NOT NULL DEFAULT 1 CHECK(nb_soignants_min >= 0),
-    nb_soignants_max INT NOT NULL DEFAULT 1 CHECK(nb_soignants_max >= nb_soignants_min),
-    CONSTRAINT chk_dates_poste CHECK (fin_prevue > debut_prevu)
-);
-
-CREATE TABLE POSTE_CERTIFICATION_REQUISE (
-    poste_id INT REFERENCES POSTE_GARDE(id) ON DELETE CASCADE,
-    certification_id INT REFERENCES CERTIFICATION(id) ON DELETE CASCADE,
-    PRIMARY KEY(poste_id, certification_id)
-);
-
-CREATE TABLE AFFECTATION (
-    id SERIAL PRIMARY KEY,
-    poste_id INT NOT NULL REFERENCES POSTE_GARDE(id) ON DELETE CASCADE,
-    soignant_id INT NOT NULL REFERENCES SOIGNANT(id) ON DELETE RESTRICT,
-    statut VARCHAR(20) NOT NULL DEFAULT 'VALIDE', -- 'VALIDE', 'ANNULE'
-    UNIQUE(poste_id, soignant_id) -- Un soignant ne peut être affecté qu'une fois au même poste
-);
-
--- 6. Événements Vie Soignant (Absences, Prêts, Contraintes)
-
-CREATE TABLE TYPE_ABSENCE (
-    id SERIAL PRIMARY KEY,
-    libelle VARCHAR(50) NOT NULL,
-    impacte_quota_garde BOOLEAN DEFAULT TRUE
-);
-
-CREATE TABLE ABSENCE (
-    id SERIAL PRIMARY KEY,
-    soignant_id INT NOT NULL REFERENCES SOIGNANT(id) ON DELETE CASCADE,
-    type_absence_id INT NOT NULL REFERENCES TYPE_ABSENCE(id),
-    date_debut DATE NOT NULL,
-    date_fin_prevue DATE NOT NULL,
-    date_fin_reelle DATE,
-    CONSTRAINT chk_dates_absence CHECK (date_fin_prevue >= date_debut)
-);
-
-CREATE TABLE CONTRAINTE_SOIGNANT (
-    id SERIAL PRIMARY KEY,
-    soignant_id INT NOT NULL REFERENCES SOIGNANT(id) ON DELETE CASCADE,
-    description TEXT NOT NULL,
-    est_imperative BOOLEAN DEFAULT FALSE,
-    datetime_debut TIMESTAMP NOT NULL,
-    datetime_fin TIMESTAMP NOT NULL,
-    valide_jusqu_au DATE, -- null équivaut à toujours valide
-    CONSTRAINT chk_dates_contrainte CHECK (datetime_fin > datetime_debut)
-);
-
-CREATE TABLE PRET_SERVICE (
-    id SERIAL PRIMARY KEY,
-    soignant_id INT NOT NULL REFERENCES SOIGNANT(id) ON DELETE CASCADE,
-    service_origine_id INT NOT NULL REFERENCES SERVICE(id),
-    service_destination_id INT NOT NULL REFERENCES SERVICE(id),
-    date_debut TIMESTAMP NOT NULL,
-    date_fin TIMESTAMP,
-    CONSTRAINT chk_services_differents CHECK (service_origine_id != service_destination_id)
-);
-
-
--- INDEXES OPTIMISÉS POUR LES REQUÊTES Q-01 à Q-07
-CREATE INDEX idx_absence_soignant_dates ON ABSENCE(soignant_id, date_debut);
-CREATE INDEX idx_poste_garde_dates ON POSTE_GARDE(debut_prevu, fin_prevue);
-CREATE INDEX idx_soignant_certif_dates ON SOIGNANT_CERTIFICATION(soignant_id, certification_id, date_expiration);
-CREATE INDEX idx_affectation_poste_soignant ON AFFECTATION(poste_id, soignant_id);
-CREATE INDEX idx_charge_patiente_date ON CHARGE_PATIENTE(unite_id, date_releve);

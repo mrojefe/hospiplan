@@ -3,11 +3,11 @@ import axios from 'axios';
 import { UserPlus } from 'lucide-react';
 
 export default function Affectations() {
-  const [affectations, setAffectations] = useState([]);
-  const [soignants, setSoignants] = useState([]);
-  const [postes, setPostes] = useState([]);
+  const [assignments, setAssignments] = useState([]);
+  const [staff, setStaff] = useState([]);
+  const [shifts, setShifts] = useState([]);
   
-  const [formData, setFormData] = useState({ poste: '', soignant: '' });
+  const [formData, setFormData] = useState({ shift: '', staff: '' });
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
@@ -17,11 +17,11 @@ export default function Affectations() {
 
   const fetchData = async () => {
     try {
-      const urls = ['http://127.0.0.1:8000/api/affectations/', 'http://127.0.0.1:8000/api/soignants/', 'http://127.0.0.1:8000/api/postes/'];
-      const [affRes, soiRes, posRes] = await Promise.all(urls.map(u => axios.get(u)));
-      setAffectations(affRes.data);
-      setSoignants(soiRes.data);
-      setPostes(posRes.data);
+      const urls = ['http://127.0.0.1:8000/api/assignments/', 'http://127.0.0.1:8000/api/staff/', 'http://127.0.0.1:8000/api/shifts/'];
+      const [assRes, staffRes, shiftRes] = await Promise.all(urls.map(u => axios.get(u)));
+      setAssignments(assRes.data);
+      setStaff(staffRes.data);
+      setShifts(shiftRes.data);
     } catch (err) {
       console.error(err);
     }
@@ -32,13 +32,13 @@ export default function Affectations() {
     setError('');
     setSuccess('');
     try {
-      await axios.post('http://127.0.0.1:8000/api/affectations/', formData);
-      setSuccess("Affectation créée avec succès !");
+      await axios.post('http://127.0.0.1:8000/api/assignments/', formData);
+      setSuccess("Affectation (Shift Assignment) créée avec succès !");
       fetchData(); // Refresh list
     } catch (err) {
       const msg = err.response?.data?.non_field_errors?.[0] || 
                   err.response?.data?.detail || 
-                  "Erreur de contrainte : l'affectation est illégale ou viole une règle métier.";
+                  "Erreur de contrainte : l'affectation est illégale vu le profil de l'agent.";
       setError(msg);
     }
   };
@@ -49,37 +49,37 @@ export default function Affectations() {
       {/* Formulaire de Création */}
       <div className="glass-card">
         <h3 style={{ color: 'var(--primary-color)', marginTop: 0 }}>Nouvelle Affectation</h3>
-        <p style={{ color: 'var(--text-muted)', fontSize: '0.875rem' }}>Les contraintes dures seront validées par le backend.</p>
+        <p style={{ color: 'var(--text-muted)', fontSize: '0.875rem' }}>Les contraintes dures seront validées par l'API (Règles Fonctionnelles).</p>
         
         {error && <div className="alert alert-error">{error}</div>}
         {success && <div className="alert alert-success">{success}</div>}
 
         <form onSubmit={handleSubmit} style={{ marginTop: '1.5rem' }}>
           <div className="form-group">
-            <label className="form-label">Sélectionner un Poste</label>
+            <label className="form-label">Sélectionner un Shift (Poste)</label>
             <select className="form-input" 
-              value={formData.poste} 
-              onChange={e => setFormData({...formData, poste: e.target.value})} 
+              value={formData.shift} 
+              onChange={e => setFormData({...formData, shift: e.target.value})} 
               required>
               <option value="">-- Choisir --</option>
-              {postes.map(p => (
+              {shifts.map(p => (
                 <option key={p.id} value={p.id}>
-                  {p.unite_nom} - {new Date(p.debut_prevu).toLocaleString()} ({p.type_garde_libelle})
+                  {p.care_unit_name} - {new Date(p.start_datetime).toLocaleString()}
                 </option>
               ))}
             </select>
           </div>
 
           <div className="form-group">
-            <label className="form-label">Sélectionner un Soignant</label>
+            <label className="form-label">Sélectionner un Soignant (Staff)</label>
             <select className="form-input" 
-              value={formData.soignant} 
-              onChange={e => setFormData({...formData, soignant: e.target.value})} 
+              value={formData.staff} 
+              onChange={e => setFormData({...formData, staff: e.target.value})} 
               required>
               <option value="">-- Choisir --</option>
-              {soignants.filter(s => s.is_actif).map(s => (
+              {staff.filter(s => s.is_active).map(s => (
                 <option key={s.id} value={s.id}>
-                  {s.prenom} {s.nom} ({s.grade_libelle})
+                  {s.first_name} {s.last_name} ({s.email})
                 </option>
               ))}
             </select>
@@ -101,16 +101,16 @@ export default function Affectations() {
               <th style={{ padding: '0.75rem' }}>Soignant</th>
               <th style={{ padding: '0.75rem' }}>Début</th>
               <th style={{ padding: '0.75rem' }}>Fin</th>
-              <th style={{ padding: '0.75rem' }}>Statut</th>
+              <th style={{ padding: '0.75rem' }}>Validité</th>
             </tr>
           </thead>
           <tbody>
-            {affectations.map(a => (
+            {assignments.map(a => (
               <tr key={a.id} style={{ borderBottom: '1px solid var(--glass-border)', fontSize: '0.875rem' }}>
-                <td style={{ padding: '0.75rem', fontWeight: 'bold' }}>{a.soignant_prenom} {a.soignant_nom}</td>
-                <td style={{ padding: '0.75rem' }}>{new Date(a.poste_debut).toLocaleString()}</td>
-                <td style={{ padding: '0.75rem' }}>{new Date(a.poste_fin).toLocaleString()}</td>
-                <td style={{ padding: '0.75rem' }}><span className="badge">{a.statut}</span></td>
+                <td style={{ padding: '0.75rem', fontWeight: 'bold' }}>{a.staff_first_name} {a.staff_last_name}</td>
+                <td style={{ padding: '0.75rem' }}>{new Date(a.shift_start).toLocaleString()}</td>
+                <td style={{ padding: '0.75rem' }}>{new Date(a.shift_end).toLocaleString()}</td>
+                <td style={{ padding: '0.75rem' }}><span className="badge">Généré le {new Date(a.assigned_at).toLocaleDateString()}</span></td>
               </tr>
             ))}
           </tbody>

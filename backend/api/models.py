@@ -2,138 +2,185 @@ from django.db import models
 from django.utils import timezone
 from django.core.validators import MinValueValidator, MaxValueValidator
 
-class RegleLegale(models.Model):
-    code = models.CharField(max_length=50, primary_key=True)
-    description = models.TextField()
-    valeur_numerique = models.DecimalField(max_digits=10, decimal_places=2)
-    unite = models.CharField(max_length=20)
+class Staff(models.Model):
+    first_name = models.CharField(max_length=100)
+    last_name = models.CharField(max_length=100)
+    email = models.EmailField(max_length=255, unique=True)
+    phone = models.CharField(max_length=20, null=True, blank=True)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        db_table = 'regle_legale'
-
-class Grade(models.Model):
-    libelle = models.CharField(max_length=100, unique=True)
-    eligibilite_garde_nuit = models.BooleanField(default=True)
-
-    class Meta:
-        db_table = 'grade'
+        db_table = 'staff'
         
-    def __str__(self):
-        return self.libelle
-
-class Specialite(models.Model):
-    libelle = models.CharField(max_length=100)
-    parent = models.ForeignKey('self', on_delete=models.SET_NULL, null=True, blank=True, related_name='sous_specialites')
+class Role(models.Model):
+    name = models.CharField(max_length=100)
+    staff = models.ManyToManyField(Staff, db_table='staff_role', related_name='roles')
 
     class Meta:
-        db_table = 'specialite'
+        db_table = 'role'
 
-class Soignant(models.Model):
-    matricule = models.CharField(max_length=50, unique=True)
-    nom = models.CharField(max_length=100)
-    prenom = models.CharField(max_length=100)
-    email = models.EmailField(max_length=150, null=True, blank=True)
-    telephone = models.CharField(max_length=20, null=True, blank=True)
-    is_actif = models.BooleanField(default=True)
-    grade = models.ForeignKey(Grade, on_delete=models.PROTECT)
-    specialites = models.ManyToManyField(Specialite, db_table='soignant_specialite', blank=True)
+class Specialty(models.Model):
+    name = models.CharField(max_length=100)
+    parent = models.ForeignKey('self', on_delete=models.SET_NULL, null=True, blank=True)
+    staff = models.ManyToManyField(Staff, db_table='staff_specialty', related_name='specialties')
 
     class Meta:
-        db_table = 'soignant'
-        
-    def __str__(self):
-        return f"{self.prenom} {self.nom} ({self.matricule})"
+        db_table = 'specialty'
 
-class Contrat(models.Model):
-    soignant = models.ForeignKey(Soignant, on_delete=models.CASCADE, related_name='contrats')
-    type_contrat = models.CharField(max_length=50)
-    date_debut = models.DateField()
-    date_fin = models.DateField(null=True, blank=True)
-    pourcentage_tps_travail = models.DecimalField(max_digits=3, decimal_places=2, validators=[MinValueValidator(0.01), MaxValueValidator(1.0)])
-    heures_max_hebdo = models.DecimalField(max_digits=4, decimal_places=1, null=True, blank=True)
+class ContractType(models.Model):
+    name = models.CharField(max_length=50)
+    max_hours_per_week = models.IntegerField(null=True, blank=True)
+    leave_days_per_year = models.IntegerField(null=True, blank=True)
+    night_shift_allowed = models.BooleanField(default=True)
 
     class Meta:
-        db_table = 'contrat'
+        db_table = 'contract_type'
+
+class Contract(models.Model):
+    staff = models.ForeignKey(Staff, on_delete=models.CASCADE, related_name='contracts')
+    contract_type = models.ForeignKey(ContractType, on_delete=models.CASCADE)
+    start_date = models.DateField()
+    end_date = models.DateField(null=True, blank=True)
+    workload_percent = models.IntegerField(default=100)
+
+    class Meta:
+        db_table = 'contract'
 
 class Certification(models.Model):
-    libelle = models.CharField(max_length=100)
-    prerequis = models.ForeignKey('self', on_delete=models.SET_NULL, null=True, blank=True, related_name='certifications_suivantes')
+    name = models.CharField(max_length=150)
+    dependencies = models.ManyToManyField('self', symmetrical=False, db_table='certification_dependency', related_name='required_by')
 
     class Meta:
         db_table = 'certification'
 
-class SoignantCertification(models.Model):
-    soignant = models.ForeignKey(Soignant, on_delete=models.CASCADE, related_name='certifications')
+class StaffCertification(models.Model):
+    staff = models.ForeignKey(Staff, on_delete=models.CASCADE, related_name='certifications')
     certification = models.ForeignKey(Certification, on_delete=models.CASCADE)
-    date_obtention = models.DateField()
-    date_expiration = models.DateField(null=True, blank=True)
+    obtained_date = models.DateField()
+    expiration_date = models.DateField(null=True, blank=True)
 
     class Meta:
-        db_table = 'soignant_certification'
+        db_table = 'staff_certification'
 
 class Service(models.Model):
-    nom = models.CharField(max_length=100, unique=True)
-    capacite_lits = models.IntegerField(validators=[MinValueValidator(0)])
-    niveau_criticite = models.IntegerField(default=1)
-    soignant_responsable = models.ForeignKey(Soignant, on_delete=models.SET_NULL, null=True, blank=True, related_name='services_geres')
+    name = models.CharField(max_length=100)
+    manager = models.ForeignKey(Staff, on_delete=models.SET_NULL, null=True, blank=True, related_name='managed_services')
+    bed_capacity = models.IntegerField()
+    criticality_level = models.IntegerField(default=1)
 
     class Meta:
         db_table = 'service'
 
-class UniteSoin(models.Model):
-    service = models.ForeignKey(Service, on_delete=models.CASCADE, related_name='unites')
-    nom = models.CharField(max_length=100)
+class CareUnit(models.Model):
+    service = models.ForeignKey(Service, on_delete=models.CASCADE, related_name='care_units')
+    name = models.CharField(max_length=100)
 
     class Meta:
-        db_table = 'unite_soin'
+        db_table = 'care_unit'
 
-class TypeGarde(models.Model):
-    libelle = models.CharField(max_length=50)
-    is_nuit = models.BooleanField(default=False)
-    is_astreinte = models.BooleanField(default=False)
-    duree_standard_heures = models.DecimalField(max_digits=4, decimal_places=2)
-
-    class Meta:
-        db_table = 'type_garde'
-
-class PosteGarde(models.Model):
-    unite = models.ForeignKey(UniteSoin, on_delete=models.CASCADE, related_name='postes')
-    type_garde = models.ForeignKey(TypeGarde, on_delete=models.PROTECT)
-    debut_prevu = models.DateTimeField()
-    fin_prevue = models.DateTimeField()
-    nb_soignants_min = models.IntegerField(default=1, validators=[MinValueValidator(0)])
-    nb_soignants_max = models.IntegerField(default=1, validators=[MinValueValidator(1)])
-    certifications_requises = models.ManyToManyField(Certification, db_table='poste_certification_requise', blank=True)
+class ServiceStatus(models.Model):
+    service = models.ForeignKey(Service, on_delete=models.CASCADE, related_name='statuses')
+    status = models.CharField(max_length=50)
+    start_date = models.DateField()
+    end_date = models.DateField(null=True, blank=True)
 
     class Meta:
-        db_table = 'poste_garde'
+        db_table = 'service_status'
 
-class Affectation(models.Model):
-    STATUT_CHOICES = [
-        ('VALIDE', 'Valide'),
-        ('ANNULE', 'Annulé'),
-    ]
-    poste = models.ForeignKey(PosteGarde, on_delete=models.CASCADE, related_name='affectations')
-    soignant = models.ForeignKey(Soignant, on_delete=models.RESTRICT, related_name='affectations')
-    statut = models.CharField(max_length=20, choices=STATUT_CHOICES, default='VALIDE')
+class StaffServiceAssignment(models.Model):
+    staff = models.ForeignKey(Staff, on_delete=models.CASCADE, related_name='service_assignments')
+    service = models.ForeignKey(Service, on_delete=models.CASCADE)
+    start_date = models.DateField()
+    end_date = models.DateField(null=True, blank=True)
 
     class Meta:
-        db_table = 'affectation'
-        unique_together = ('poste', 'soignant')
+        db_table = 'staff_service_assignment'
 
-class TypeAbsence(models.Model):
-    libelle = models.CharField(max_length=50)
-    impacte_quota_garde = models.BooleanField(default=True)
+class ShiftType(models.Model):
+    name = models.CharField(max_length=50)
+    duration_hours = models.IntegerField()
+    requires_rest_after = models.BooleanField(default=True)
 
     class Meta:
-        db_table = 'type_absence'
+        db_table = 'shift_type'
+
+class Shift(models.Model):
+    care_unit = models.ForeignKey(CareUnit, on_delete=models.CASCADE, related_name='shifts')
+    shift_type = models.ForeignKey(ShiftType, on_delete=models.CASCADE)
+    start_datetime = models.DateTimeField()
+    end_datetime = models.DateTimeField()
+    min_staff = models.IntegerField(default=1)
+    max_staff = models.IntegerField(null=True, blank=True)
+    required_certifications = models.ManyToManyField(Certification, db_table='shift_required_certification', blank=True)
+
+    class Meta:
+        db_table = 'shift'
+
+class ShiftAssignment(models.Model):
+    shift = models.ForeignKey(Shift, on_delete=models.CASCADE, related_name='assignments')
+    staff = models.ForeignKey(Staff, on_delete=models.RESTRICT, related_name='shift_assignments')
+    assigned_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'shift_assignment'
+
+class AbsenceType(models.Model):
+    name = models.CharField(max_length=50)
+    impacts_quota = models.BooleanField(default=True)
+
+    class Meta:
+        db_table = 'absence_type'
 
 class Absence(models.Model):
-    soignant = models.ForeignKey(Soignant, on_delete=models.CASCADE, related_name='absences')
-    type_absence = models.ForeignKey(TypeAbsence, on_delete=models.PROTECT)
-    date_debut = models.DateField()
-    date_fin_prevue = models.DateField()
-    date_fin_reelle = models.DateField(null=True, blank=True)
+    staff = models.ForeignKey(Staff, on_delete=models.CASCADE, related_name='absences')
+    absence_type = models.ForeignKey(AbsenceType, on_delete=models.CASCADE)
+    start_date = models.DateField()
+    expected_end_date = models.DateField()
+    actual_end_date = models.DateField(null=True, blank=True)
+    is_planned = models.BooleanField(default=True)
 
     class Meta:
         db_table = 'absence'
+
+class Preference(models.Model):
+    staff = models.ForeignKey(Staff, on_delete=models.CASCADE, related_name='preferences')
+    type = models.CharField(max_length=50, null=True, blank=True)
+    description = models.TextField(null=True, blank=True)
+    is_hard_constraint = models.BooleanField(default=False)
+    start_date = models.DateField()
+    end_date = models.DateField(null=True, blank=True)
+
+    class Meta:
+        db_table = 'preference'
+
+class PatientLoad(models.Model):
+    care_unit = models.ForeignKey(CareUnit, on_delete=models.CASCADE, related_name='patient_loads')
+    date = models.DateField()
+    patient_count = models.IntegerField()
+    occupancy_rate = models.FloatField(null=True, blank=True)
+
+    class Meta:
+        db_table = 'patient_load'
+
+class StaffLoan(models.Model):
+    staff = models.ForeignKey(Staff, on_delete=models.CASCADE, related_name='loans')
+    from_service = models.ForeignKey(Service, on_delete=models.CASCADE, related_name='+')
+    to_service = models.ForeignKey(Service, on_delete=models.CASCADE, related_name='+')
+    start_date = models.DateField()
+    end_date = models.DateField()
+
+    class Meta:
+        db_table = 'staff_loan'
+
+class Rule(models.Model):
+    name = models.CharField(max_length=100)
+    description = models.TextField(null=True, blank=True)
+    rule_type = models.CharField(max_length=50, null=True, blank=True)
+    value = models.DecimalField(max_digits=10, decimal_places=2)
+    unit = models.CharField(max_length=20, null=True, blank=True)
+    valid_from = models.DateField()
+    valid_to = models.DateField(null=True, blank=True)
+
+    class Meta:
+        db_table = 'rule'
