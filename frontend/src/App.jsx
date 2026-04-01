@@ -1,8 +1,8 @@
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
-import Layout from './components/layout/Layout';
-import StaffPage from './pages/StaffPage';
-import ShiftsPage from './pages/ShiftsPage';
-import AssignmentsPage from './pages/AssignmentsPage';
+import Layout from './components/layout/Layout.jsx';
+import StaffPage from './pages/StaffPage.jsx';
+import ShiftsPage from './pages/ShiftsPage.jsx';
+import AssignmentsPage from './pages/AssignmentsPage.jsx';
 
 function DashboardHome() {
   return (

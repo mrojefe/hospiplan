@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
-import { useFetch } from '../../hooks/useFetch';
-import { api } from '../../api/client';
-import { Card, Table, Badge, Alert } from '../ui';
+import { useFetch } from '../../hooks/useFetch.js';
+import { api } from '../../api/client.js';
+import { Card, Table, Badge, Alert } from '../ui/index.jsx';
 
 export default function ShiftsPage() {
   const { data: shifts, loading, error, execute } = useFetch(api.getShifts);

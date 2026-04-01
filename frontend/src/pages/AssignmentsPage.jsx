@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
-import { useFetch } from '../../hooks/useFetch';
-import { api } from '../../api/client';
-import { Card, Table, Badge, Alert, Button } from '../ui';
+import { useFetch } from '../../hooks/useFetch.js';
+import { api } from '../../api/client.js';
+import { Card, Table, Badge, Alert, Button } from '../ui/index.jsx';
 import { UserPlus } from 'lucide-react';
 
 export default function AssignmentsPage() {
