@@ -2,6 +2,7 @@ from rest_framework import viewsets, status
 from rest_framework.response import Response
 from rest_framework.exceptions import ValidationError
 from django.db.models import Q
+from django.db import transaction
 import datetime
 
 from .models import Staff, Shift, ShiftAssignment, Absence, Rule, Contract, StaffCertification
@@ -23,9 +24,14 @@ class ShiftAssignmentViewSet(viewsets.ModelViewSet):
     queryset = ShiftAssignment.objects.all()
     serializer_class = ShiftAssignmentSerializer
 
+    @transaction.atomic
     def perform_create(self, serializer):
-        staff = serializer.validated_data['staff']
         shift = serializer.validated_data['shift']
+        
+        # VERROU DE LA BDD (Anti Race-Condition)
+        # On verrouille la ligne du soignant pendant toute la validation
+        staff_id = serializer.validated_data['staff'].id
+        staff = Staff.objects.select_for_update().get(id=staff_id)
         
         # Validation des contraintes dures (Phase 2)
         self.validate_assignment_hard_constraints(staff, shift)

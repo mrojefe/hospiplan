@@ -53,8 +53,10 @@ CREATE TABLE contract (
     contract_type_id INT NOT NULL REFERENCES contract_type(id), 
     start_date DATE NOT NULL, 
     end_date DATE, 
-    workload_percent INT DEFAULT 100 
+    workload_percent INT DEFAULT 100,
+    deleted_at TIMESTAMP NULL 
 ); 
+CREATE INDEX idx_active_contract ON contract(staff_id) WHERE end_date IS NULL;
 
 CREATE TABLE certification ( 
     id SERIAL PRIMARY KEY, 
@@ -96,6 +98,7 @@ CREATE TABLE service_status (
     start_date DATE NOT NULL, 
     end_date DATE 
 ); 
+CREATE INDEX idx_active_service_status ON service_status(service_id) WHERE end_date IS NULL;
 
 CREATE TABLE staff_service_assignment ( 
     id SERIAL PRIMARY KEY, 
@@ -104,6 +107,7 @@ CREATE TABLE staff_service_assignment (
     start_date DATE NOT NULL, 
     end_date DATE 
 ); 
+CREATE INDEX idx_active_service_assignment ON staff_service_assignment(staff_id) WHERE end_date IS NULL;
 
 CREATE TABLE shift_type ( 
     id SERIAL PRIMARY KEY, 
@@ -119,7 +123,8 @@ CREATE TABLE shift (
     start_datetime TIMESTAMP NOT NULL, 
     end_datetime TIMESTAMP NOT NULL, 
     min_staff INT DEFAULT 1, 
-    max_staff INT 
+    max_staff INT,
+    deleted_at TIMESTAMP NULL 
 ); 
 
 CREATE TABLE shift_required_certification ( 
@@ -130,9 +135,10 @@ CREATE TABLE shift_required_certification (
 
 CREATE TABLE shift_assignment ( 
     id SERIAL PRIMARY KEY, 
-    shift_id INT NOT NULL REFERENCES shift(id) ON DELETE CASCADE, 
+    shift_id INT NOT NULL REFERENCES shift(id) ON DELETE RESTRICT, 
     staff_id INT NOT NULL REFERENCES staff(id) ON DELETE RESTRICT, 
-    assigned_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP 
+    assigned_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    deleted_at TIMESTAMP NULL 
 ); 
 
 CREATE TABLE absence_type ( 
@@ -148,7 +154,8 @@ CREATE TABLE absence (
     start_date DATE NOT NULL, 
     expected_end_date DATE NOT NULL, 
     actual_end_date DATE, 
-    is_planned BOOLEAN DEFAULT true 
+    is_planned BOOLEAN DEFAULT true,
+    deleted_at TIMESTAMP NULL 
 ); 
 
 CREATE TABLE preference ( 

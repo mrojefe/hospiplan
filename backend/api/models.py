@@ -43,9 +43,13 @@ class Contract(models.Model):
     start_date = models.DateField()
     end_date = models.DateField(null=True, blank=True)
     workload_percent = models.IntegerField(default=100)
+    deleted_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         db_table = 'contract'
+        indexes = [
+            models.Index(fields=['staff'], name='idx_active_contract', condition=models.Q(end_date__isnull=True)),
+        ]
 
 class Certification(models.Model):
     name = models.CharField(max_length=150)
@@ -87,6 +91,9 @@ class ServiceStatus(models.Model):
 
     class Meta:
         db_table = 'service_status'
+        indexes = [
+            models.Index(fields=['service'], name='idx_active_service_status', condition=models.Q(end_date__isnull=True)),
+        ]
 
 class StaffServiceAssignment(models.Model):
     staff = models.ForeignKey(Staff, on_delete=models.CASCADE, related_name='service_assignments')
@@ -96,6 +103,9 @@ class StaffServiceAssignment(models.Model):
 
     class Meta:
         db_table = 'staff_service_assignment'
+        indexes = [
+            models.Index(fields=['staff'], name='idx_active_service_assig', condition=models.Q(end_date__isnull=True)),
+        ]
 
 class ShiftType(models.Model):
     name = models.CharField(max_length=50)
@@ -113,14 +123,16 @@ class Shift(models.Model):
     min_staff = models.IntegerField(default=1)
     max_staff = models.IntegerField(null=True, blank=True)
     required_certifications = models.ManyToManyField(Certification, db_table='shift_required_certification', blank=True)
+    deleted_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         db_table = 'shift'
 
 class ShiftAssignment(models.Model):
-    shift = models.ForeignKey(Shift, on_delete=models.CASCADE, related_name='assignments')
+    shift = models.ForeignKey(Shift, on_delete=models.RESTRICT, related_name='assignments')
     staff = models.ForeignKey(Staff, on_delete=models.RESTRICT, related_name='shift_assignments')
     assigned_at = models.DateTimeField(auto_now_add=True)
+    deleted_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         db_table = 'shift_assignment'
@@ -139,6 +151,7 @@ class Absence(models.Model):
     expected_end_date = models.DateField()
     actual_end_date = models.DateField(null=True, blank=True)
     is_planned = models.BooleanField(default=True)
+    deleted_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         db_table = 'absence'
