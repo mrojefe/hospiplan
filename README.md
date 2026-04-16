@@ -11,49 +11,101 @@ HospiPlan est une application de génération et de gestion de plannings hospita
 - **Temporalité Parfaite** : Gestion totale du pattern *SCD Type 2* (Historisation par intervalles) avec Indexation optimisée (Partial Indices) sur les lignes actives.
 - Conception modulaire et paramétrable (Moteur de règles dynamique via la table `rule`).
 
-### Backend (Django REST Framework)
-- API complète couvrant l'interaction entre `Staff`, `Shift`, `Contract` et `Absence`.
-- Tolérance zéro aux erreurs : **Protection au niveau transactionnel (`SELECT FOR UPDATE`)** empêchant les Race Conditions si deux managers assignent une ressource à la même milliseconde !
-- Valide intelligemment en Python jusqu'à 6 contraintes strictes ("Contraintes dures") avant chaque enregistrement.
+### Backend (Django REST Framework) — Production Ready
+- **Sécurité JWT** : Authentification par tokens avec refresh automatique
+- **Permissions fines** : Responsables de service ne modifient que leurs services
+- **Audit log complet** : Traçabilité de toutes les actions (qui, quand, quoi)
+- **Protection transactionnelle** : `SELECT FOR UPDATE` anti race-conditions
+- **8 contraintes dures** validées automatiquement :
+  1. **Chevauchement horaire** - Un soignant ne peut pas avoir deux shifts simultanés
+  2. **Certifications requises** - Vérification des qualifications obligatoires
+  3. **Repos post-nuit** - Respect du délai réglementaire après une garde de nuit
+  4. **Contrat actif** - Vérification de l'autorisation selon le type de contrat
+  5. **Absences** - Blocage si le soignant est en congé/maladie
+  6. **Quota hebdomadaire** - Respect des heures maximales du contrat
+  7. **F-07 Préférences impératives** - Respect des contraintes déclarées par le soignant
+  8. **Seuil de sécurité** - Maintien du ratio lits/soignants par service
+- **Performance** : Pagination (100 items/page), `prefetch_related` optimisé
+- **Soft deletes** : Aucune donnée perdue, traçabilité médico-légale
 
 ### Frontend (React + Vite)
-- Interface de supervision qualitative avec design en *Glassmorphism*.
-- Gestion des erreurs renvoyées par l'API (Rendu des `400 Bad Request` en cas d'affectation violant une règle métier de l'hôpital).
+- **Authentification JWT** : Login sécurisé avec tokens et refresh automatique
+- **Validation frontend** : Vérification avant soumission, messages d'erreur clairs
+- **Gestion des erreurs HTTP** : 400, 401, 403, 409 avec messages spécifiques
+- **Design Glassmorphism** : Interface moderne et professionnelle
 
-## 🛠️ Installation & Démarrage (Autonome)
+## � Démarrage Rapide avec Docker (Recommandé)
 
-Ce projet utilise le gestionnaire d'environnement nouvelle génération **`uv`**.
+La méthode la plus simple pour lancer l'application complète :
 
-### 1. Cloner le Projet
 ```bash
+# Cloner et entrer dans le projet
 git clone https://github.com/mrojefe/hospiplan.git
 cd hospiplan
+
+# Lancer tous les services
+docker-compose up --build
 ```
 
-### 2. Démarrer le Serveur Backend (Django)
-Ouvrez un terminal et tapez :
+**URLs accessibles :**
+- **Frontend** : http://localhost:5173
+- **Backend API** : http://localhost:8000/api/
+- **Admin Django** : http://localhost:8000/admin/
+
+### Commandes utiles Docker
+```bash
+# Arrêter
+docker-compose down
+
+# Voir les logs
+docker-compose logs -f backend
+docker-compose logs -f frontend
+
+# Reset complet (efface la DB)
+docker-compose down -v
+```
+
+---
+
+## 🛠️ Installation Manuelle (Développement)
+
+### Prérequis
+- Python 3.11+
+- Node.js 18+
+- PostgreSQL 15+ (optionnel, SQLite par défaut)
+
+### Backend (Django)
 ```bash
 cd backend
-uv venv
-source .venv/bin/activate
-uv pip install django djangorestframework django-cors-headers
-python manage.py makemigrations
+python -m venv venv
+source venv/bin/activate  # Windows: venv\Scripts\activate
+pip install -r requirements.txt
+
+# Configuration
+cp .env.example .env  # Modifier les variables si nécessaire
+
+# Créer un superuser pour l'authentification
 python manage.py migrate
+python manage.py createsuperuser
 python manage.py runserver 8000
 ```
-L'API fonctionnera sur `http://127.0.0.1:8000/api/`.
 
-### 3. Démarrer l'Interface Frontend (React)
-Ouvrez un DEUXIÈME terminal (Laissez tourner le premier !) :
+### Frontend (React + Vite)
 ```bash
 cd frontend
 npm install
 npm run dev
 ```
-L'application web sera accessible via le lien localhost indiqué (Généralement `http://localhost:5173/`).
 
-## 📚 Documentation (Pour les Développeurs)
-Ne laissez aucune zone d'ombre. Vous trouverez toute la documentation pédagogique justifiant l'architecture du projet dans le dossier principal **`docs/explications/`**. Vous y découvrirez pourquoi certains motifs de modélisation ont été choisis pour répondre adéquatement aux exigences hospitalières (Explications sur l'*Adjacency List*, la gestion `Axios`, la boucle de vérification Django, etc.).
+## 📚 Documentation (Dossier `learn/`)
+Documentation pédagogique complète couvrant tous les aspects du projet :
+
+- **`00-introduction/`** — Contexte métier, lexique professionnel, architecture 3-tiers
+- **`01-fondations/`** — Modèle relationnel, ORM Django, exercices de modélisation
+- **`02-backend-api/`** — ViewSets, Serializers, 8 contraintes dures avec solutions
+- **`03-frontend/`** — React Hooks, Axios, composants UI avec exercices
+- **`04-integration/`** — CORS expliqué, Docker Compose avancé
+- **`05-annexes/`** — Glossaire, questions d'entretien, checklist livrables
 
 ---
 

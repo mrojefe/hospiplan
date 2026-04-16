@@ -1,7 +1,7 @@
 import { Link, useLocation } from 'react-router-dom';
-import { Stethoscope, CalendarDays, Users, LayoutDashboard } from 'lucide-react';
+import { Stethoscope, CalendarDays, Users, LayoutDashboard, LogOut } from 'lucide-react';
 
-export default function Layout({ children }) {
+export default function Layout({ children, onLogout }) {
   const location = useLocation();
   const isActive = (path) => location.pathname === path ? 'sidebar-link active' : 'sidebar-link';
 
@@ -13,16 +13,23 @@ export default function Layout({ children }) {
           <h1>HospiPlan</h1>
         </div>
         <nav className="sidebar-nav">
-          <Link to="/" className={isActive('/')}><LayoutDashboard size={20}/> <span>Dashboard</span></Link>
-          <Link to="/staff" className={isActive('/staff')}><Users size={20}/> <span>Staff</span></Link>
-          <Link to="/shifts" className={isActive('/shifts')}><CalendarDays size={20}/> <span>Shifts</span></Link>
-          <Link to="/assignments" className={isActive('/assignments')}><CalendarDays size={20}/> <span>Affectations</span></Link>
+          <Link to="/" className={isActive('/')}><LayoutDashboard size={20} /> <span>Dashboard</span></Link>
+          <Link to="/staff" className={isActive('/staff')}><Users size={20} /> <span>Staff</span></Link>
+          <Link to="/shifts" className={isActive('/shifts')}><CalendarDays size={20} /> <span>Shifts</span></Link>
+          <Link to="/assignments" className={isActive('/assignments')}><CalendarDays size={20} /> <span>Affectations</span></Link>
         </nav>
         <div className="sidebar-footer">
+          <button
+            onClick={onLogout}
+            className="sidebar-link"
+            style={{ width: '100%', border: 'none', background: 'transparent', cursor: 'pointer' }}
+          >
+            <LogOut size={20} /> <span>Déconnexion</span>
+          </button>
           <p>© 2026 Al Amal</p>
         </div>
       </aside>
-      
+
       <main className="main-content">
         <header className="topbar">
           <h2>Administration Centralisée</h2>

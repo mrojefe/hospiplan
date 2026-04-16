@@ -22,16 +22,42 @@ export default function AssignmentsPage() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setSubmitState({ type: null, message: '' });
+
+    // Validation frontend
+    if (!formData.shift) {
+      setSubmitState({ type: 'error', message: 'Veuillez sélectionner un poste (shift)' });
+      return;
+    }
+    if (!formData.staff) {
+      setSubmitState({ type: 'error', message: 'Veuillez sélectionner un agent de santé' });
+      return;
+    }
+
     setIsSubmitting(true);
-    
+
     try {
       await api.createAssignment(formData);
       setSubmitState({ type: 'success', message: 'Affectation créée avec succès !' });
+      setFormData({ shift: '', staff: '' }); // Reset form
       fetchAssignments(); // Refresh grid
     } catch (err) {
-      const msg = err.response?.data?.non_field_errors?.[0] || 
-                  err.response?.data?.detail || 
-                  "Erreur : Violation d'une contrainte métier (Heures, Repos, Compétences).";
+      // Gestion spécifique des erreurs HTTP
+      const status = err.response?.status;
+      const data = err.response?.data;
+
+      let msg;
+      if (status === 409) {
+        msg = data?.detail || 'Conflit : Ce créneau vient d\'être assigné à quelqu\'un d\'autre. Veuillez rafraîchir la page.';
+      } else if (status === 400 && data?.non_field_errors) {
+        msg = data.non_field_errors[0];
+      } else if (status === 401) {
+        msg = 'Session expirée. Veuillez vous reconnecter.';
+      } else if (status === 403) {
+        msg = 'Accès refusé. Vous n\'avez pas les permissions nécessaires.';
+      } else {
+        msg = data?.detail || "Erreur : Violation d'une contrainte métier (Heures, Repos, Compétences).";
+      }
+
       setSubmitState({ type: 'error', message: msg });
     } finally {
       setIsSubmitting(false);
@@ -58,9 +84,9 @@ export default function AssignmentsPage() {
             <form onSubmit={handleSubmit} className="assignment-form">
               <div className="form-group">
                 <label className="form-label">Poste Sélectionné</label>
-                <select className="form-select" 
-                  value={formData.shift} 
-                  onChange={e => setFormData({...formData, shift: e.target.value})} 
+                <select className="form-select"
+                  value={formData.shift}
+                  onChange={e => setFormData({ ...formData, shift: e.target.value })}
                   required>
                   <option value="">-- Assigner un shift --</option>
                   {shifts.map(p => (
@@ -73,9 +99,9 @@ export default function AssignmentsPage() {
 
               <div className="form-group">
                 <label className="form-label">Agent de Santé</label>
-                <select className="form-select" 
-                  value={formData.staff} 
-                  onChange={e => setFormData({...formData, staff: e.target.value})} 
+                <select className="form-select"
+                  value={formData.staff}
+                  onChange={e => setFormData({ ...formData, staff: e.target.value })}
                   required>
                   <option value="">-- Assigner un agent --</option>
                   {staffList.filter(s => s.is_active).map(s => (
@@ -87,7 +113,7 @@ export default function AssignmentsPage() {
               </div>
 
               <Button type="submit" variant="primary" className="btn-w-full" disabled={isSubmitting}>
-                <UserPlus size={18} style={{ marginRight: '8px' }}/>
+                <UserPlus size={18} style={{ marginRight: '8px' }} />
                 {isSubmitting ? 'Traitement...' : 'Valider'}
               </Button>
             </form>
@@ -106,7 +132,7 @@ export default function AssignmentsPage() {
                   <td><Badge variant="success">Assigné le {new Date(a.assigned_at).toLocaleDateString()}</Badge></td>
                 </tr>
               ))}
-               {assignments.length === 0 && (
+              {assignments.length === 0 && (
                 <tr>
                   <td colSpan="4" className="text-center">Aucune affectation trouvée.</td>
                 </tr>

@@ -1,0 +1,254 @@
+Project Hospital_Staffing {
+  database_type: "PostgreSQL"
+}
+
+/* =========================
+   F-01 Personnel & Profils
+   ========================= */
+
+Table staff {
+  id int [pk]
+  first_name varchar
+  last_name varchar
+  email varchar [unique]
+  phone varchar
+  is_active boolean [default: true]
+  created_at timestamp
+}
+
+Table role {
+  id int [pk]
+  name varchar // médecin, infirmier, etc.
+}
+
+Table staff_role {
+  staff_id int
+  role_id int
+
+  indexes {
+    (staff_id, role_id) [pk]
+  }
+}
+
+/* Spécialités (hiérarchie récursive) */
+Table specialty {
+  id int [pk]
+  name varchar
+  parent_id int [ref: > specialty.id] // hiérarchie
+}
+
+Table staff_specialty {
+  staff_id int
+  specialty_id int
+
+  indexes {
+    (staff_id, specialty_id) [pk]
+  }
+}
+
+/* =========================
+   F-02 Contrats (temporalité)
+   ========================= */
+
+Table contract_type {
+  id int [pk]
+  name varchar // CDI, CDD, intérim...
+  max_hours_per_week int
+  leave_days_per_year int
+  night_shift_allowed boolean
+}
+
+Table contract {
+  id int [pk]
+  staff_id int [ref: > staff.id]
+  contract_type_id int [ref: > contract_type.id]
+  start_date date
+  end_date date
+  workload_percent int // 100, 50...
+}
+
+/* =========================
+   F-03 Certifications
+   ========================= */
+
+Table certification {
+  id int [pk]
+  name varchar
+}
+
+Table certification_dependency {
+  parent_cert_id int [ref: > certification.id]
+  required_cert_id int [ref: > certification.id]
+
+  indexes {
+    (parent_cert_id, required_cert_id) [pk]
+  }
+}
+
+Table staff_certification {
+  id int [pk]
+  staff_id int [ref: > staff.id]
+  certification_id int [ref: > certification.id]
+  obtained_date date
+  expiration_date date
+}
+
+/* =========================
+   F-04 Services & Unités
+   ========================= */
+
+Table service {
+  id int [pk]
+  name varchar
+  manager_id int [ref: > staff.id]
+  bed_capacity int
+  criticality_level int
+}
+
+Table care_unit {
+  id int [pk]
+  service_id int [ref: > service.id]
+  name varchar
+}
+
+/* États temporels des services */
+Table service_status {
+  id int [pk]
+  service_id int [ref: > service.id]
+  status varchar // ouvert, fermé, sous-effectif
+  start_date date
+  end_date date
+}
+
+/* Historique d’affectation principale */
+Table staff_service_assignment {
+  id int [pk]
+  staff_id int [ref: > staff.id]
+  service_id int [ref: > service.id]
+  start_date date
+  end_date date
+}
+
+/* =========================
+   F-05 Gardes & créneaux
+   ========================= */
+
+Table shift_type {
+  id int [pk]
+  name varchar // jour, nuit, week-end...
+  duration_hours int
+  requires_rest_after boolean
+}
+
+Table shift {
+  id int [pk]
+  care_unit_id int [ref: > care_unit.id]
+  shift_type_id int [ref: > shift_type.id]
+  start_datetime timestamp
+  end_datetime timestamp
+  min_staff int
+  max_staff int
+}
+
+/* Certifications requises pour un shift */
+Table shift_required_certification {
+  shift_id int [ref: > shift.id]
+  certification_id int [ref: > certification.id]
+
+  indexes {
+    (shift_id, certification_id) [pk]
+  }
+}
+
+/* Affectation réelle */
+Table shift_assignment {
+  id int [pk]
+  shift_id int [ref: > shift.id]
+  staff_id int [ref: > staff.id]
+  assigned_at timestamp
+}
+
+/* =========================
+   F-06 Absences
+   ========================= */
+
+Table absence_type {
+  id int [pk]
+  name varchar
+  impacts_quota boolean
+}
+
+Table absence {
+  id int [pk]
+  staff_id int [ref: > staff.id]
+  absence_type_id int [ref: > absence_type.id]
+  start_date date
+  expected_end_date date
+  actual_end_date date
+  is_planned boolean
+}
+
+/* =========================
+   F-07 Préférences & Contraintes
+   ========================= */
+
+Table preference {
+  id int [pk]
+  staff_id int [ref: > staff.id]
+  type varchar // preference ou contrainte
+  description varchar
+  is_hard_constraint boolean
+  start_date date
+  end_date date
+}
+
+/* =========================
+   F-08 Charge patient
+   ========================= */
+
+Table patient_load {
+  id int [pk]
+  care_unit_id int [ref: > care_unit.id]
+  date date
+  patient_count int
+  occupancy_rate float
+}
+
+/* =========================
+   F-09 Prêts inter-services
+   ========================= */
+
+Table staff_loan {
+  id int [pk]
+  staff_id int [ref: > staff.id]
+  from_service_id int [ref: > service.id]
+  to_service_id int [ref: > service.id]
+  start_date date
+  end_date date
+}
+
+/* =========================
+   F-10 Règles métier configurables
+   ========================= */
+
+Table rule {
+  id int [pk]
+  name varchar
+  description varchar
+  rule_type varchar // ex: "max_hours", "rest_time"
+  value numeric
+  unit varchar // hours, days...
+  valid_from date
+  valid_to date
+}
+
+
+Ref: "role"."id" < "staff_role"."role_id"
+
+Ref: "staff"."id" < "staff_role"."staff_id"
+
+Ref: "staff"."id" < "staff_specialty"."staff_id"
+
+Ref: "specialty"."id" < "staff_specialty"."specialty_id"
+
+Ref: "rule"."id" < "contract_type"."id"
