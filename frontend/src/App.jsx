@@ -4,21 +4,13 @@ import Layout from './components/layout/Layout.jsx';
 import StaffPage from './pages/StaffPage.jsx';
 import ShiftsPage from './pages/ShiftsPage.jsx';
 import AssignmentsPage from './pages/AssignmentsPage.jsx';
+import Dashboard from './pages/Dashboard.jsx';
+import ReportsPage from './pages/ReportsPage.jsx';
 import LoginPage from './pages/LoginPage.jsx';
 import { auth } from './api/client.js';
 
 function DashboardHome() {
-  return (
-    <div className="page-animate">
-      <div className="page-header">
-        <h1>Bienvenue sur HospiPlan</h1>
-        <p className="subtitle">Tableau de bord de l'administration hospitalière</p>
-      </div>
-      <div style={{ padding: '64px', textAlign: 'center', color: 'var(--text-muted)' }}>
-        Sélectionnez une option dans le menu de gauche.
-      </div>
-    </div>
-  );
+  return <Dashboard />;
 }
 
 // Composant pour protéger les routes
@@ -79,6 +71,7 @@ function App() {
                   <Route path="/staff" element={<StaffPage />} />
                   <Route path="/shifts" element={<ShiftsPage />} />
                   <Route path="/assignments" element={<AssignmentsPage />} />
+                  <Route path="/reports" element={<ReportsPage />} />
                 </Routes>
               </Layout>
             </ProtectedRoute>

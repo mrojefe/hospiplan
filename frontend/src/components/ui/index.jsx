@@ -1,11 +1,14 @@
 // Card.jsx
-export function Card({ children, title, description, className = '' }) {
+export function Card({ children, title, description, className = '', actions }) {
   return (
     <div className={`ui-card ${className}`}>
-      {(title || description) && (
+      {(title || description || actions) && (
         <div className="ui-card-header">
-          {title && <h3 className="ui-card-title">{title}</h3>}
-          {description && <p className="ui-card-description">{description}</p>}
+          <div className="ui-card-header-content">
+            {title && <h3 className="ui-card-title">{title}</h3>}
+            {description && <p className="ui-card-description">{description}</p>}
+          </div>
+          {actions && <div className="ui-card-actions">{actions}</div>}
         </div>
       )}
       <div className="ui-card-content">
@@ -61,3 +64,15 @@ export function Table({ headers, children }) {
     </div>
   );
 }
+
+// Re-export all new components
+export { Modal } from './Modal.jsx';
+export { Drawer } from './Drawer.jsx';
+export { StatsCard } from './StatsCard.jsx';
+export { DataTable } from './DataTable.jsx';
+export { ProgressBar } from './ProgressBar.jsx';
+export { Input } from './Input.jsx';
+export { Select } from './Select.jsx';
+export { DatePicker } from './DatePicker.jsx';
+export { EmptyState } from './EmptyState.jsx';
+export { LoadingSpinner } from './LoadingSpinner.jsx';

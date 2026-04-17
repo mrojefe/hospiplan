@@ -35,7 +35,9 @@ apiClient.interceptors.response.use(
       try {
         const refreshToken = localStorage.getItem('refresh_token');
         if (!refreshToken) {
-          window.location.href = '/login';
+          // Pas de refresh token, déconnexion
+          auth.clearTokens();
+          window.location.replace('/login');
           return Promise.reject(error);
         }
 
@@ -51,9 +53,8 @@ apiClient.interceptors.response.use(
         return apiClient(originalRequest);
       } catch (refreshError) {
         // Refresh failed, rediriger vers login
-        localStorage.removeItem('access_token');
-        localStorage.removeItem('refresh_token');
-        window.location.href = '/login';
+        auth.clearTokens();
+        window.location.replace('/login');
         return Promise.reject(refreshError);
       }
     }
@@ -70,7 +71,9 @@ export const api = {
 
   // Data
   getStaff: () => apiClient.get('staff/'),
+  createStaff: (data) => apiClient.post('staff/', data),
   getShifts: () => apiClient.get('shifts/'),
+  createShift: (data) => apiClient.post('shifts/', data),
   getAssignments: () => apiClient.get('assignments/'),
   createAssignment: (data) => apiClient.post('assignments/', data),
   deleteAssignment: (id) => apiClient.delete(`assignments/${id}/`),

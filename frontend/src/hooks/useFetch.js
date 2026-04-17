@@ -10,7 +10,9 @@ export function useFetch(apiFunc) {
       setLoading(true);
       setError(null);
       const response = await apiFunc();
-      setData(response.data);
+      // Handle both {results: [...]} and direct array responses
+      const extractedData = response.data?.results || response.data || [];
+      setData(extractedData);
     } catch (err) {
       setError(err.message || 'Une erreur est survenue.');
     } finally {
